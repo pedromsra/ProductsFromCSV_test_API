@@ -1,13 +1,14 @@
 const path = require("path");
+require("dotenv/config")
 
 	module.exports = {
 
 		development: {
 			client: 'mysql',
 			connection: {
-        host: '127.0.0.1',
-        user: 'root',
-        password: 'Al12($*)',
+        host: process.env.DB_HOST || '127.0.0.1',
+        user: process.env.DB_USER || 'root',
+        password: process.env.DB_PASSWORD,
         database: 'shopper'
 			},
 			migrations: {

@@ -1,12 +1,24 @@
 require("express-async-errors");
-
-const { prodUp, packUp } = require('./getData')
-
-const AppError = require("./utils/AppError");
+require("dotenv/config")
 
 const express = require("express");
 
+const cors = require("cors");
+
+const routes = require("./routes")
+
+const AppError = require("./utils/AppError");
+
+const { prodUp, packUp } = require('./getData')
+
 const app = express();
+
+app.use(express.json())
+
+app.use(cors())
+
+app.use(routes)
+
 
 prodUp()
 packUp()
@@ -25,6 +37,6 @@ app.use((error, request, response, next) => {
   })
 })
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3010;
 
 app.listen(PORT, () => console.log(`Running on Port: ${PORT}`))
