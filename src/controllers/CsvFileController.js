@@ -164,7 +164,9 @@ class PriceController {
   }
 
   async updatePrices(req, res) {
-    const productsToUpdate = req.body.products
+    if(req.body.errors && req.body.errors.length) {
+      return res.status(401).json('ainda existem erros no arquivo .csv')
+    }
     
     let productsFromPacks = []
     let packsFromPacks = []

@@ -9,6 +9,7 @@
       - [Criar Banco de dados no MySQL](#criar-banco-de-dados-no-mysql)
     - [Tabelas utilizadas:](#tabelas-utilizadas)
   - [Enviroments Variables (.env)](#enviroments-variables-env)
+    - [.env](#env)
     - [As seguintes variáveis devem ser alteradas no arquivo .env](#as-seguintes-variáveis-devem-ser-alteradas-no-arquivo-env)
   - [Primeiros passos](#primeiros-passos)
     - [Clonar repositório do github](#clonar-repositório-do-github)
@@ -63,6 +64,10 @@
   
 ## Enviroments Variables (.env)
 
+### .env
+
+- Criar arquivo .env conforme arquivo exemple.env e adicionar as informações personalizadas
+
 ### As seguintes variáveis devem ser alteradas no arquivo .env
 
 - DB_HOST: O endereço do host
@@ -104,10 +109,9 @@
 - Requisição esperada em Multipart com arquivo enviado na requisição com nome 'files' em formado .csv (exemplo):
   - Usando Insomnia ou Postgres:
     - Body: Multipart Form
-      - name: files > file: algum_arquivo.csv
+      - name: files -> file: algum_arquivo.csv
     - Headers: 
-      - header: Content-Type
-      - multipart/form-data
+      - header: Content-Type -> multipart/form-data
 
   - Pelo Front-End, por exemplo, com React:
 
@@ -121,7 +125,7 @@
     });
 ```
 
-- Resposta: JSON cntendo a lista de erros e a lista de produtos encontrados no arquivo .csv, no formato, como exemplo:
+- Resposta: JSON contendo a lista de erros e a lista de produtos encontrados no arquivo .csv, no formato, como exemplo:
   
 ```
 {
@@ -158,8 +162,8 @@
 			"new_price": 10.76
 		}
 	],
-	"errors": []
+	"errors": [] //A lista de erros deve está vazia ou será retornado um erro 400
 }
 ```
 
-- Resposta: status(200).JSON('quantidade de produtos atualizados');
+- Resposta: status(200).JSON('--quantidade de produtos atualizados--');
