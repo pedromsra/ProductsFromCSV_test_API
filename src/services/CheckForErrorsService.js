@@ -76,7 +76,8 @@ class CheckForErrorsService {
           }
         })
         
-        if (packPriceCheck !== Number((csvData.productsFromCsv[d].new_price).toFixed(2))) {
+        if (Number((packPriceCheck).toFixed(2)) !== Number((csvData.productsFromCsv[d].new_price).toFixed(2))) {
+          console.log(packPriceCheck, Number((csvData.productsFromCsv[d].new_price).toFixed(2)))
           csvData.errors.push({ error: `O pack ${csvData.productsFromCsv[d].code} - ${csvData.productsFromCsv[d].name} de produtos de código ${productsFromPackList} está com valor divergente do somatório de seus componentes. Foi sugerida alteração dos componentes de código ${productsFromPackToUpdateList}`, code: csvData.productsFromCsv[d].code, name: csvData.productsFromCsv[d].name })
         }
       }
