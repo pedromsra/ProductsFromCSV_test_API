@@ -97,7 +97,6 @@
 
 > Para alterar o servidor recomenda-se alterar no arquivo .env em PORT;
 
-
 ## Paths
 
 ### "/prices"
@@ -107,6 +106,8 @@
 - endereço: localhost:3010/prices;
 - info: upload de arquivo .csv, leitura do seu conteúdo e retornar erros (se existir) e os produtos listados (se válidos);
 - Requisição esperada em Multipart com arquivo enviado na requisição com nome 'files' em formado .csv (exemplo):
+  - exemplo de conteúdo do arquivo .csv:
+    - ![arquivoCsv](conteudo_esperado_csv.png)
   - Usando Insomnia ou Postgres:
     - Body: Multipart Form
       - name: files -> file: algum_arquivo.csv

@@ -35,24 +35,22 @@ const prodUp = async () => {
 const packUp = async () => {
   try {
     const packsData = defaultData.filter(packs => packs.includes('INTO packs'))
-    packsData.forEach(async pack => {
+    for(let pack = 0; pack < packsData.length; pack++) {
       const pack_infos = {
-        pack_id: Number(pack.substring(pack.indexOf('VALUES (') + 8, pack.indexOf(');')).split(',')[0]),
-        product_id: Number(pack.substring(pack.indexOf('VALUES (') + 8, pack.indexOf(');')).split(',')[1]),
-        qty: Number(pack.substring(pack.indexOf('VALUES (') + 8, pack.indexOf(');')).split(',')[2])
+        pack_id: Number(packsData[pack].substring(packsData[pack].indexOf('VALUES (') + 8, packsData[pack].indexOf(');')).split(',')[0]),
+        product_id: Number(packsData[pack].substring(packsData[pack].indexOf('VALUES (') + 8, packsData[pack].indexOf(');')).split(',')[1]),
+        qty: Number(packsData[pack].substring(packsData[pack].indexOf('VALUES (') + 8, packsData[pack].indexOf(');')).split(',')[2])
       }
-
       const packIdCheck = await knex('packs')
         .where({ pack_id: pack_infos.pack_id, product_id: pack_infos.product_id, qty: pack_infos.qty })
         .first()
-
-      if (packIdCheck) {
-        return
-      } else {
-        await knex.raw(pack)
+        
+        if (packIdCheck) {
+          return
+        } else {
+        await knex.raw(packsData[pack])
       }
-
-    })
+    }
   } catch (e) {
     console.log(e)
   }

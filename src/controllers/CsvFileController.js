@@ -2,7 +2,11 @@ const AppError = require("../utils/AppError");
 
 const knex = require("../database/knex");
 
-const fs = require('fs')
+const CsvRepository = require("../repositories/CsvRepositories")
+const ReadAndConvertCsvFileService = require("../services/ReadAndConvertCsvFileService")
+const CheckForErrorsService = require('../services/CheckForErrorsService')
+
+const fs = require('fs');
 
 
 class PriceController {
@@ -10,168 +14,40 @@ class PriceController {
 
     const filename = require.resolve(`../../uploads/${req.files[0].filename}`) //obter arquivo .csv da requisição
 
-    try {
+    const csvRepository = new CsvRepository();
+    const readAndConvertCsvFileService = new ReadAndConvertCsvFileService(csvRepository)
+    const checkForErrorsService = new CheckForErrorsService(csvRepository)
 
-      const csvData = fs.readFileSync(filename, 'utf8', function (err, csv) {
+    const csvDataRaw = fs.readFileSync(filename, 'utf8', function (err, csv) {
         if (err) {
           throw err
         }
         csv
-      }).trim().split(/\r?\n/).splice(1)
+      }).trim().split(/\r?\n/)
 
-      let productsFromCsv = [] //lista dos produtos com os respectivos novos valores
-      let errors = []
-      let commaError = [] //lista para armazenas as linhas que apresentarem virgula no lugar de ponto para decimais
-      let fieldsError = [] //lista para armazenar linhas com informações ausentes
+      const csvData = await readAndConvertCsvFileService.execute(csvDataRaw)
 
-
-      //Ler a array de strings para converter numa array de objetos {code, name, cost_price, sales_price, new_price}
-      for (let d = 0; d < csvData.length; d++) {
-        let dataToUpdate = csvData[d].split(',')
-        if (dataToUpdate.length > 2) {
-          commaError.push(d + 2)
-        }
-        if (dataToUpdate.length !== 2) {
-          fieldsError.push(d + 2)
-        }
-
-        let test = await knex('products').where('code', Number(dataToUpdate[0])).first()
-
-        if (test !== undefined) {
-          let { code, name, cost_price, sales_price } = await knex('products').where('code', Number(dataToUpdate[0])).first()
-          let new_price = Number(Number(dataToUpdate[1]).toFixed(2))
-          productsFromCsv.push({ code, name, cost_price, sales_price, new_price })
-        } else {
-          errors.push({ error: `Produto de código ${Number(dataToUpdate[0])} não encontrado (linha ${d + 2} do arquivo .csv)`, code: Number(dataToUpdate[0]) })
-        }
-      }
-
-      //Verificações de presença de (,) e ausência de informação, gerando os respectivos erros
-
-      if (commaError.length) {
-        errors.push({ error: `Porfavor, utilize o ponto(.) como identificador decial e não a virgula(,). Foram identificados erros nas linhas ${commaError} do seu arquivo .CSV` })
-      }
-
-      if (fieldsError.length) {
-        errors.push({ error: `Por favor, informe apenas o código do produto e o novo valor (R$) a ser atualizado` })
-      }
-
-
-      for (let d = 0; d < productsFromCsv.length; d++) {
-        if (productsFromCsv[d].new_price <= productsFromCsv[d].cost_price) {
-          errors.push({ error: `O novo preço de venda de ${productsFromCsv[d].code} - ${productsFromCsv[d].name} está abaixo de seu custo`, code: productsFromCsv[d].code, name: productsFromCsv[d].name })
-        }
-
-        if (Number((productsFromCsv[d].new_price).toFixed(2)) < Number((productsFromCsv[d].sales_price * 0.9).toFixed(2))) {
-          errors.push({ error: `O novo preço de venda de ${productsFromCsv[d].code} - ${productsFromCsv[d].name} está muito abaixo de seu preço atual (<90% ou <R$ ${(productsFromCsv[d].sales_price * 0.9).toFixed(2)})`, code: productsFromCsv[d].code, name: productsFromCsv[d].name })
-        }
-
-        if (Number((productsFromCsv[d].new_price).toFixed(2)) > Number((productsFromCsv[d].sales_price * 1.1).toFixed(2))) {
-          errors.push({ error: `O novo preço de venda de ${productsFromCsv[d].code} - ${productsFromCsv[d].name} está muito acima de seu preço atual (>110% ou >R$ ${(productsFromCsv[d].sales_price * 1.1).toFixed(2)})`, code: productsFromCsv[d].code, name: productsFromCsv[d].name })
-        }
-
-        let test = await knex('packs').where({ pack_id: productsFromCsv[d].code })
-
-        let packCheck = null
-
-        let productsFromPack = [] //produtos que compões o pack
-        let productsFromPackList = [] //lista de codigo de produtos que compõe o pack, para exibir no relatorio de erros
-        let productsFromPackToUpdate = [] //lista de produtos do pack que também estão sendo atualizados pelo .csv, simultâneamente
-        let productsFromPackToUpdateList = [] //lista de codigo do pack que também estão sendo atualizados pelo .csv, simultanemante, para exibir no relatório de erros.
-
-        if (test !== undefined) {
-          packCheck = await knex('packs').where({ pack_id: productsFromCsv[d].code }) //verificar se o produto é um pack
-
-          if (packCheck.length) {
-            packCheck.forEach(pack => {
-              productsFromCsv.forEach(product => {
-                if (pack.product_id === product.code) {
-                  if (packCheck.length > 1) {
-                    productsFromPackToUpdate.push({ code: product.code, new_price: product.new_price })
-                    productsFromPackToUpdateList.push(product.code)
-                  } else {
-                    if (Number((productsFromCsv[d].new_price / pack.qty).toFixed(2)) !== product.new_price) {
-                      errors.push({ error: `O pack ${pack.pack_id} - ${productsFromCsv[d].name} está com novo valor de R$ ${productsFromCsv[d].new_price} (R$ ${(productsFromCsv[d].new_price / pack.qty).toFixed(2)}/und) e o prduto que compões o pack ${product.code} - ${product.name} está com novo valor sugerido de R$ ${(product.new_price).toFixed(2)}, os valores unitários estão divergentes` })
-                    }
-                  }
-                }
-              })
-            });
-          }
-        }
-
-        if (packCheck.length > 1) {
-
-          for (let p = 0; p < packCheck.length; p++) {
-            let test = await knex('products').where({ code: packCheck[p].product_id }).first()
-
-            if (test !== undefined) {
-              let { code, name, cost_price, sales_price } = await knex('products').where({ code: packCheck[p].product_id }).first()
-              productsFromPack.push({ code, name, cost_price, sales_price, qty: packCheck[p].qty })
-              productsFromPackList.push(code)
-            }
-          }
-
-          let packPriceCheck = 0
-          let aux = 0
-
-          productsFromPack.forEach((pPack, index) => {
-            productsFromPackToUpdate.forEach(pUpdate => {
-              if (pUpdate.code === pPack.code) {
-                packPriceCheck += Number((pUpdate.new_price).toFixed(2)) * pPack.qty
-                aux++
-              }
-            })
-            if (aux === index) {
-              packPriceCheck += Number((pPack.sales_price).toFixed(2)) * pPack.qty
-              aux++
-            }
-          })
-
-          if (packPriceCheck !== Number((productsFromCsv[d].new_price).toFixed(2))) {
-            errors.push({ error: `O pack ${productsFromCsv[d].code} - ${productsFromCsv[d].name} de produtos de código ${productsFromPackList} está com valor divergente do somatório de seus componentes. Foi sugerida alteração dos componentes de código ${productsFromPackToUpdateList}`, code: productsFromCsv[d].code, name: productsFromCsv[d].name })
-          }
-        }
-      }
-
+      const csvDataAnalised = await checkForErrorsService.execute(csvData)
+      
       fs.unlinkSync(filename)
-
-      const productsToUpdate = productsFromCsv.map(product => {
-        if (Object.keys(product).includes('error')) {
-          return { code: product.code, name: product.name, sales_price: product.sales_price, new_price: product.new_price, error: product.error }
-        } else {
-          return { code: product.code, name: product.name, sales_price: product.sales_price, new_price: product.new_price }
-        }
-      })
-
-      const errorLog = productsToUpdate.filter(product => {
-        if (Object.keys(product).includes('error')) {
-          return { error: product.error }
-        }
-      })
-
-      if (errorLog.length) {
-        response.json({ error: errorLog })
-      } else {
-        response.json({ products: productsToUpdate, errors })
-      }
-    }
-    catch (e) {
-      fs.unlinkSync(filename)
-      throw new AppError(e, 401)
-    }
-
+      
+      response.json({ products: csvDataAnalised.productsFromCsv, errors: csvDataAnalised.errors })
   }
 
   async updatePrices(req, res) {
+    
     if(req.body.errors && req.body.errors.length) {
       return res.status(401).json('ainda existem erros no arquivo .csv')
     }
     
+    const productsToUpdate = req.body.products
+    
     let productsFromPacks = []
     let packsFromPacks = []
     let productFromProduct = []
+    
     for (let p = 0; p < productsToUpdate.length; p++) {
+    
       const productPack = await knex('packs').where({ product_id: productsToUpdate[p].code })
       const pack = await knex('packs').where({ pack_id: productsToUpdate[p].code })
       const product = await knex('products').where({ code: productsToUpdate[p].code }).first()
